@@ -53,6 +53,8 @@ async def execute_plan(str_json_plan: str) -> str:
     """
     logger.info(f"Executing plan ={str_json_plan}")
 
+    # retrieve MCP service addresses from the plan
+    # with goal to connect agent to them to get proper tools
     parsed_json = json.loads(str_json_plan)
     ext_mcp_servers = {record["mcp-service-endpoint"] for record in parsed_json.values()}
 
