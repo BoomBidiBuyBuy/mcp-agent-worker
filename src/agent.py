@@ -21,7 +21,7 @@ def load_mcp_servers(custom_mcp_servers):
     return mcp_servers
 
 
-def build_agent(custom_mcp_servers: dict = None):
+async def build_agent(custom_mcp_servers: dict = None):
     """
     Builds an OpenAI-based agent using the LangChain framework,
     integrated with MCP servers listed in the `mcp-servers.json` file.
@@ -35,10 +35,12 @@ def build_agent(custom_mcp_servers: dict = None):
 
     mcp_servers = load_mcp_servers(custom_mcp_servers)
 
+    print(f"Connected the following MCP servers {mcp_servers}")
+
     client = MultiServerMCPClient(mcp_servers)
 
     # get tools
-    tools = asyncio.run(client.get_tools())
+    tools = await client.get_tools()
 
     def call_model(state: MessagesState):
         response = llm.bind_tools(tools).invoke(state["messages"])
@@ -55,4 +57,4 @@ def build_agent(custom_mcp_servers: dict = None):
     )
     builder.add_edge("tools", "call_model")
 
-    return builder.compile(checkpointer=checkpointer)
+    return builder.compile() #checkpointer=checkpointer)
