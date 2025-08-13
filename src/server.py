@@ -1,6 +1,6 @@
 import asyncio
-import logging
 import json
+import logging
 
 from fastmcp import FastMCP
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -51,42 +51,32 @@ async def execute_plan(str_json_plan: str) -> str:
     Returns:
         The result of the plan execution.
     """
-    logger.info("Executing plan", extra={"str_json_plan": str_json_plan})
-
-    print(str_json_plan)
+    logger.info(f"Executing plan ={str_json_plan}")
 
     parsed_json = json.loads(str_json_plan)
-    ext_mcp_servers = { 
-        record["mcp-service-endpoint"] for record in parsed_json.values()
-    }
+    ext_mcp_servers = {record["mcp-service-endpoint"] for record in parsed_json.values()}
 
-    print("Ext mcp servers: ", ext_mcp_servers)
     dict_ext_mcp_servers = dict()
     for inx, value in enumerate(ext_mcp_servers):
-        dict_ext_mcp_servers[f"name{inx}"] = {
-            "transport": "streamable_http",
-            "url": value
-        }
-    #dict_ext_mcp_servers = {"mcpServers": dict_ext_mcp_servers}
-    print("Dict ext mcp servers: ", dict_ext_mcp_servers)
+        dict_ext_mcp_servers[f"name{inx}"] = {"transport": "streamable_http", "url": value}
 
+    logger.info(f"Dict ext mcp servers: {dict_ext_mcp_servers}")
 
     agent_obj = await agent.build_agent(dict_ext_mcp_servers)
     result = await agent_obj.ainvoke(
         {
             "messages": [
                 SystemMessage(
-                    content="You are a helpful assistant that can execute plans.You are given a plan to execute. You are connected to the MCP registry where you can find possible MCP services and their tools to use in plan."
+                    content="""You are a helpful assistant that can execute plans.
+                    You are given a plan to execute. You are connected to the MCP registry where you
+                    can find possible MCP services and their tools to use in plan."""
                 ),
                 HumanMessage(content=str_json_plan),
             ]
         }
     )
 
-    print("Result: ")
-    print(result)
-
-    logger.info("Plan executed", extra={"result": result})
+    logger.info(f"Plan executed, result={result}")
 
     return result
 

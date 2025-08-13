@@ -1,13 +1,14 @@
-import asyncio
 import json
+import logging
 
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langchain_openai import ChatOpenAI
-from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import START, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
 
 import envs
+
+logger = logging.getLogger("mcp_agent_worker")
 
 
 def load_mcp_servers(custom_mcp_servers):
@@ -35,7 +36,7 @@ async def build_agent(custom_mcp_servers: dict = None):
 
     mcp_servers = load_mcp_servers(custom_mcp_servers)
 
-    print(f"Connected the following MCP servers {mcp_servers}")
+    logger.info(f"Connected the following MCP servers {mcp_servers}")
 
     client = MultiServerMCPClient(mcp_servers)
 
@@ -46,7 +47,6 @@ async def build_agent(custom_mcp_servers: dict = None):
         response = llm.bind_tools(tools).invoke(state["messages"])
         return {"messages": response}
 
-    checkpointer = InMemorySaver()
     builder = StateGraph(MessagesState)
     builder.add_node(call_model)
     builder.add_node(ToolNode(tools))
@@ -57,4 +57,4 @@ async def build_agent(custom_mcp_servers: dict = None):
     )
     builder.add_edge("tools", "call_model")
 
-    return builder.compile() #checkpointer=checkpointer)
+    return builder.compile()
