@@ -1,0 +1,8 @@
+{
+    "mcpServers": {
+        "MCPService": {
+            "transport": "streamable_http",
+            "url": "http://some-endpoint:some-port/mcp/"
+        }
+    }
+}
