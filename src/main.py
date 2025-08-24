@@ -9,6 +9,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 from envs import MCP_HOST, MCP_PORT
 
+import asyncio
 import agent
 
 
@@ -68,6 +69,9 @@ async def http_health_check(request):
 @mcp_server.custom_route("/message", methods=["POST"])
 async def http_message(request):
     """ Endpoint to process message from the client with agent."""
+
+    logger.info(f"\n\nRecieved to process /message, result={request}\n\n")
+
     data = await request.json()
     message = data.get("message")
     thread_id = data.get("thread_id")
@@ -95,6 +99,13 @@ async def http_message(request):
     return JSONResponse({"status": "message received", "message": reply_message})
 
 
-if __name__ == "__main__":
+async def run_server():
+    # initially build an agent
+    await agent.get_agent()
+
     logger.info(f"Starting MCP server on {MCP_HOST}:{MCP_PORT}")
-    mcp_server.run(transport="http", host=MCP_HOST, port=MCP_PORT)
+    await mcp_server.run_async(transport="http", host=MCP_HOST, port=int(MCP_PORT))
+
+
+if __name__ == "__main__":
+    asyncio.run(run_server())
