@@ -1,15 +1,16 @@
+import os
+import logging
 import asyncio
 import json
-import logging
-import os
 
 from langchain_mcp_adapters.client import MultiServerMCPClient
-from langchain_openai import ChatOpenAI
-from langgraph.checkpoint.memory import InMemorySaver
-from langgraph.graph import START, MessagesState, StateGraph
+from langgraph.graph import StateGraph, MessagesState, START
 from langgraph.prebuilt import ToolNode, tools_condition
+from langgraph.checkpoint.memory import InMemorySaver
 
+from langchain_openai import ChatOpenAI
 from envs import MCP_SERVERS_FILE_PATH, OPENAI_API_KEY, OPENAI_MODEL
+
 
 logger = logging.getLogger(__name__)
 
@@ -32,9 +33,7 @@ async def build_agent():
         api_key=OPENAI_API_KEY,
     )
 
-    try:
-        # Create client to connect to our MCP server
-
+    try:    # Create client to connect to our MCP server
         logger.info("Connecting to MCP servers...")
 
         mcp_servers = load_mcp_servers()
@@ -55,7 +54,9 @@ async def build_agent():
             logger.debug("State messages: %s", state["messages"])
 
             if tools:
-                logger.info(f"Using {len(tools)} tools: {[tool.name for tool in tools]}")
+                logger.info(
+                    f"Using {len(tools)} tools: {[tool.name for tool in tools]}"
+                )
                 response = llm.bind_tools(tools).invoke(state["messages"])
                 logger.debug("LLM response with tools: %s", response)
             else:
@@ -70,7 +71,9 @@ async def build_agent():
 
             return {
                 "messages": [
-                    AIMessage(content="Sorry, I encountered an error processing your request.")
+                    AIMessage(
+                        content="Sorry, I encountered an error processing your request."
+                    )
                 ]
             }
 
