@@ -76,6 +76,7 @@ async def http_message(request):
     message = data.get("message")
     thread_id = data.get("thread_id")
     agent_obj = await agent.get_agent()
+
     result = await agent_obj.ainvoke(
         {
             "messages": [

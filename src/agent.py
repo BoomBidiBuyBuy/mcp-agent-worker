@@ -2,6 +2,7 @@ import os
 import logging
 import asyncio
 import json
+import logging
 
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langgraph.graph import StateGraph, MessagesState, START
@@ -10,6 +11,8 @@ from langgraph.checkpoint.memory import InMemorySaver
 
 from langchain_openai import ChatOpenAI
 from envs import MCP_SERVERS_FILE_PATH, OPENAI_API_KEY, OPENAI_MODEL
+
+logger = logging.getLogger("mcp_agent_worker")
 
 
 logger = logging.getLogger(__name__)
