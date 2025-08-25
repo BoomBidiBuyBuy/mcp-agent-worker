@@ -13,9 +13,10 @@ from envs import MCP_HOST, MCP_PORT
 mcp_server = FastMCP(name="mcp-agent-worker")
 
 
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+)
 logger = logging.getLogger(__name__)
-# Configure logging
-logger.info("MCP Agent Worker initialized")
 
 
 @mcp_server.tool
@@ -105,9 +106,6 @@ async def http_reread_tools(request):
 
 
 async def run_server():
-    # initially build an agent
-    await agent.get_agent()
-
     logger.info(f"Starting MCP server on {MCP_HOST}:{MCP_PORT}")
     await mcp_server.run_async(transport="http", host=MCP_HOST, port=int(MCP_PORT))
 

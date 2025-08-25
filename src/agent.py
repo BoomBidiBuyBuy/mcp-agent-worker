@@ -2,7 +2,6 @@ import asyncio
 import json
 import logging
 import os
-from urllib.parse import urljoin
 
 import httpx
 from langchain_mcp_adapters.client import MultiServerMCPClient
@@ -141,7 +140,7 @@ def _expand_env_vars(value):
 def load_mcp_servers():
     if MCP_REGISTRY_ENDPOINT:
         logger.info(f"Loading MCP servers from registry endpoint: {MCP_REGISTRY_ENDPOINT}")
-        response = httpx.get(urljoin(MCP_REGISTRY_ENDPOINT, "list_services"))
+        response = httpx.get(f"{MCP_REGISTRY_ENDPOINT}/list_services")
         response.raise_for_status()
         response_data = response.json()
 
