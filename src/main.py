@@ -97,6 +97,13 @@ async def http_message(request):
     return JSONResponse({"status": "message received", "message": reply_message})
 
 
+@mcp_server.custom_route("/reread_tools", methods=["GET"])
+async def http_reread_tools(request):
+    """Endpoint to reread tools from MCP registry."""
+    await agent.read_tools_from_mcp()
+    return JSONResponse({"status": "tools reread"})
+
+
 async def run_server():
     # initially build an agent
     await agent.get_agent()

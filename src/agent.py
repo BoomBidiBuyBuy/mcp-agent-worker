@@ -2,17 +2,16 @@ import asyncio
 import json
 import logging
 import os
-
-import httpx
 from urllib.parse import urljoin
 
+import httpx
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import START, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
 
-from envs import MCP_REGISTRY_ENDPOINT, MCP_SERVERS_FILE_PATH, OPENAI_API_KEY, OPENAI_MODEL, MCP_REGISTRY_ENDPOINT
+from envs import MCP_REGISTRY_ENDPOINT, MCP_SERVERS_FILE_PATH, OPENAI_API_KEY, OPENAI_MODEL
 
 logger = logging.getLogger("mcp_agent_worker")
 
@@ -22,21 +21,11 @@ logger = logging.getLogger(__name__)
 # Global agent instance
 agent = None
 agent_initializing = False
+tools = []
 
 
-async def build_agent():
-    """
-    Builds an OpenAI-based agent using the LangChain framework,
-    integrated with a simple FastMCP server for local development.
-
-    The agent uses InMemorySaver to persist conversation history.
-    """
-    llm = ChatOpenAI(
-        temperature=1,
-        streaming=False,
-        model=OPENAI_MODEL,
-        api_key=OPENAI_API_KEY,
-    )
+async def read_tools_from_mcp():
+    global tools
 
     try:  # Create client to connect to our MCP server
         logger.info("Connecting to MCP servers...")
@@ -53,7 +42,26 @@ async def build_agent():
         # Return empty tools if MCP server is not available
         tools = []
 
+
+async def build_agent():
+    """
+    Builds an OpenAI-based agent using the LangChain framework,
+    integrated with a simple FastMCP server for local development.
+
+    The agent uses InMemorySaver to persist conversation history.
+    """
+    llm = ChatOpenAI(
+        temperature=1,
+        streaming=False,
+        model=OPENAI_MODEL,
+        api_key=OPENAI_API_KEY,
+    )
+
+    await read_tools_from_mcp()
+
     def call_model(state: MessagesState):
+        global tools
+
         try:
             logger.info("Processing message with LLM...")
             logger.debug("State messages: %s", state["messages"])
