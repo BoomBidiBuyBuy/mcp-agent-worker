@@ -3,13 +3,16 @@ import json
 import logging
 import os
 
+import httpx
+from urllib.parse import urljoin
+
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import START, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
 
-from envs import MCP_SERVERS_FILE_PATH, OPENAI_API_KEY, OPENAI_MODEL
+from envs import MCP_REGISTRY_ENDPOINT, MCP_SERVERS_FILE_PATH, OPENAI_API_KEY, OPENAI_MODEL, MCP_REGISTRY_ENDPOINT
 
 logger = logging.getLogger("mcp_agent_worker")
 
@@ -128,9 +131,19 @@ def _expand_env_vars(value):
 
 
 def load_mcp_servers():
-    with open(MCP_SERVERS_FILE_PATH) as f:
-        permanent_servers = json.load(f)
-    mcp_servers = permanent_servers.get("mcpServers", {})
-    mcp_servers = _expand_env_vars(mcp_servers)
-    logger.info(f"Loaded MCP servers: {mcp_servers}")
-    return mcp_servers
+    if MCP_REGISTRY_ENDPOINT:
+        logger.info(f"Loading MCP servers from registry endpoint: {MCP_REGISTRY_ENDPOINT}")
+        response = httpx.get(urljoin(MCP_REGISTRY_ENDPOINT, "list_services"))
+        response.raise_for_status()
+        response_data = response.json()
+
+        mcp_servers = response_data.get("services", {})
+        logger.info(f"Loaded MCP servers: {mcp_servers}")
+        return mcp_servers
+    else:
+        with open(MCP_SERVERS_FILE_PATH) as f:
+            permanent_servers = json.load(f)
+        mcp_servers = permanent_servers.get("mcpServers", {})
+        mcp_servers = _expand_env_vars(mcp_servers)
+        logger.info(f"Loaded MCP servers: {mcp_servers}")
+        return mcp_servers
