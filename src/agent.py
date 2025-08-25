@@ -1,60 +1,136 @@
+import asyncio
 import json
 import logging
+import os
 
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langchain_openai import ChatOpenAI
+from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import START, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
 
-import envs
+from envs import MCP_SERVERS_FILE_PATH, OPENAI_API_KEY, OPENAI_MODEL
 
 logger = logging.getLogger("mcp_agent_worker")
 
 
-def load_mcp_servers(custom_mcp_servers):
-    with open("mcp-servers.json") as f:
-        permanent_servers = json.load(f)
+logger = logging.getLogger(__name__)
 
-    mcp_servers = permanent_servers.get("mcpServers", {})
-    if custom_mcp_servers:
-        mcp_servers.update(custom_mcp_servers)
-
-    return mcp_servers
+# Global agent instance
+agent = None
+agent_initializing = False
 
 
-async def build_agent(custom_mcp_servers: dict = None):
+async def build_agent():
     """
     Builds an OpenAI-based agent using the LangChain framework,
-    integrated with MCP servers listed in the `mcp-servers.json` file.
+    integrated with a simple FastMCP server for local development.
 
-    The agent uses an in-memory saver to retain the history
-    of the conversation during runtime.
+    The agent uses InMemorySaver to persist conversation history.
     """
     llm = ChatOpenAI(
-        temperature=0, streaming=False, model=envs.OPENAI_MODEL, api_key=envs.OPENAI_API_KEY
+        temperature=1,
+        streaming=False,
+        model=OPENAI_MODEL,
+        api_key=OPENAI_API_KEY,
     )
 
-    mcp_servers = load_mcp_servers(custom_mcp_servers)
+    try:  # Create client to connect to our MCP server
+        logger.info("Connecting to MCP servers...")
 
-    logger.info(f"Connected the following MCP servers {mcp_servers}")
+        mcp_servers = load_mcp_servers()
 
-    client = MultiServerMCPClient(mcp_servers)
+        client = MultiServerMCPClient(mcp_servers)
+        tools = await client.get_tools()
+        logger.info("Connected to MCP servers")
+        logger.info(f"Loaded {len(tools)} tools: {[tool.name for tool in tools]}")
 
-    # get tools
-    tools = await client.get_tools()
+    except Exception as e:
+        logger.exception("Failed to connect to MCP server: %s", e)
+        # Return empty tools if MCP server is not available
+        tools = []
 
     def call_model(state: MessagesState):
-        response = llm.bind_tools(tools).invoke(state["messages"])
-        return {"messages": response}
+        try:
+            logger.info("Processing message with LLM...")
+            logger.debug("State messages: %s", state["messages"])
+
+            if tools:
+                logger.info(f"Using {len(tools)} tools: {[tool.name for tool in tools]}")
+                response = llm.bind_tools(tools).invoke(state["messages"])
+                logger.debug("LLM response with tools: %s", response)
+            else:
+                logger.info("Using LLM without tools")
+                response = llm.invoke(state["messages"])
+                logger.debug("LLM response without tools: %s", response)
+            return {"messages": response}
+        except Exception as e:
+            logger.exception("Error in call_model: %s", e)
+            # Return a simple error message
+            from langchain_core.messages import AIMessage
+
+            return {
+                "messages": [
+                    AIMessage(content="Sorry, I encountered an error processing your request.")
+                ]
+            }
 
     builder = StateGraph(MessagesState)
     builder.add_node(call_model)
-    builder.add_node(ToolNode(tools))
-    builder.add_edge(START, "call_model")
-    builder.add_conditional_edges(
-        "call_model",
-        tools_condition,
-    )
-    builder.add_edge("tools", "call_model")
+    if tools:
+        builder.add_node(ToolNode(tools))
+        builder.add_edge(START, "call_model")
+        builder.add_conditional_edges(
+            "call_model",
+            tools_condition,
+        )
+        builder.add_edge("tools", "call_model")
+    else:
+        builder.add_edge(START, "call_model")
 
-    return builder.compile()
+    # Use InMemorySaver to persist conversation history
+    checkpointer = InMemorySaver()
+    return builder.compile(checkpointer=checkpointer)
+
+
+async def get_agent():
+    """Get or initialize the agent (lazy initialization)"""
+    global agent, agent_initializing
+
+    if agent is not None:
+        return agent
+
+    if agent_initializing:
+        # Wait for initialization to complete
+        while agent_initializing:
+            await asyncio.sleep(0.1)
+        return agent
+
+    agent_initializing = True
+    try:
+        logger.info("Initializing agent...")
+        agent = await build_agent()
+        logger.info("Agent initialized successfully")
+        return agent
+    finally:
+        agent_initializing = False
+
+
+def _expand_env_vars(value):
+    """Recursively expand ${VAR} or $VAR in strings inside dict/list structures."""
+    if isinstance(value, str):
+        return os.path.expandvars(value)
+    if isinstance(value, dict):
+        return {k: _expand_env_vars(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_expand_env_vars(v) for v in value]
+    return value
+
+
+def load_mcp_servers():
+    with open(MCP_SERVERS_FILE_PATH) as f:
+        permanent_servers = json.load(f)
+    mcp_servers = permanent_servers.get("mcpServers", {})
+    mcp_servers = _expand_env_vars(mcp_servers)
+    logger.info(f"Loaded MCP servers: {mcp_servers}")
+    return mcp_servers
