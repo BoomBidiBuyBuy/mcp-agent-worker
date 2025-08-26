@@ -65,7 +65,7 @@ async def http_health_check(request):
     return JSONResponse({"status": "healthy", "service": "mcp-agent-worker"})
 
 
-@mcp_server.custom_route("/rereadtools", methods=["GET"])
+@mcp_server.custom_route("/reread_tools", methods=["GET"])
 async def http_reread_tools(request):
     """Endpoint to reread tools from MCP registry."""
     logger.info("Rereading tools from MCP registry")
