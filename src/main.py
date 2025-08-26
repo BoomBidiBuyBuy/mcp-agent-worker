@@ -64,6 +64,13 @@ async def http_health_check(request):
     return JSONResponse({"status": "healthy", "service": "mcp-agent-worker"})
 
 
+@mcp_server.custom_route("/rereadtools", methods=["GET"])
+async def http_reread_tools(request):
+    """Endpoint to reread tools from MCP registry."""
+    await agent.read_tools_from_mcp()
+    return JSONResponse({"status": "tools reread"})
+
+
 @mcp_server.custom_route("/message", methods=["POST"])
 async def http_message(request):
     """Endpoint to process message from the client with agent."""
@@ -96,13 +103,6 @@ async def http_message(request):
     reply_message = result.get("messages")[-1].content
 
     return JSONResponse({"status": "message received", "message": reply_message})
-
-
-@mcp_server.custom_route("/reread_tools", methods=["GET"])
-async def http_reread_tools(request):
-    """Endpoint to reread tools from MCP registry."""
-    await agent.read_tools_from_mcp()
-    return JSONResponse({"status": "tools reread"})
 
 
 async def run_server():
