@@ -1,5 +1,4 @@
 import asyncio
-import json
 import logging
 from typing import Annotated
 
@@ -21,15 +20,15 @@ logger = logging.getLogger(__name__)
 
 @mcp_server.tool
 async def execute_plan(
+    user_id: Annotated[str, "The user that is executing the plan"],
     str_json_plan: Annotated[str, "A JSON string representing the plan to execute."],
 ) -> Annotated[str, "The result of the plan execution."]:
     """Execute a plan using the agent help."""
     logger.info(f"Executing plan ={str_json_plan}")
-
+    logger.info(f"Executing plan for user ={user_id}")
     # retrieve MCP service addresses from the plan
     # with goal to connect agent to them to get proper tools
-    parsed_json = json.loads(str_json_plan)
-    thread_id = parsed_json.get("thread_id")
+    # parsed_json = json.loads(str_json_plan)
     # ext_mcp_servers = {record["mcp-service-endpoint"] for record in parsed_json.values()}
     #
     # dict_ext_mcp_servers = dict()
@@ -45,10 +44,11 @@ async def execute_plan(
                     You are given a plan to execute. You are connected to the MCP registry where you
                     can find possible MCP services and their tools to use in plan."""
                 ),
+                SystemMessage(content=f"The user that is executing the plan is {user_id}"),
                 HumanMessage(content=str_json_plan),
             ]
         },
-        config={"configurable": {"thread_id": thread_id}},
+        config={"configurable": {"thread_id": user_id}},
     )
 
     logger.info(f"\n\nPlan executed, result={result}\n\n")
@@ -81,7 +81,7 @@ async def http_message(request):
 
     data = await request.json()
     message = data.get("message")
-    thread_id = data.get("thread_id")
+    user_id = data.get("user_id")
     agent_obj = await agent.get_agent()
 
     result = await agent_obj.ainvoke(
@@ -93,12 +93,16 @@ async def http_message(request):
                     for later / periodically using the scheduler.
                     If you are not sure about any parameter for any tool then you have
                     to ask the user for it.
+
+                    If you list scheduled jobs then do not expose job id,
+                    then enumerate them and print description and what is the schedule.
                     """
                 ),
+                SystemMessage(content=f"The user that is executing the plan is {user_id}"),
                 HumanMessage(content=message),
             ],
         },
-        config={"configurable": {"thread_id": thread_id}},
+        config={"configurable": {"thread_id": user_id}},
     )
     logger.info(f"\n\nMessage received, result={result}\n\n")
 
