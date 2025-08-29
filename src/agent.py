@@ -2,13 +2,18 @@ import asyncio
 import json
 import logging
 import os
+from collections.abc import Sequence
+from typing import Annotated
 
 import httpx
+from langchain_core.messages import AIMessage, AnyMessage, HumanMessage
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import START, MessagesState, StateGraph
+from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode, tools_condition
+from typing_extensions import TypedDict
 
 from envs import MCP_REGISTRY_ENDPOINT, MCP_SERVERS_FILE_PATH, OPENAI_API_KEY, OPENAI_MODEL
 
@@ -42,6 +47,7 @@ async def read_tools_from_mcp():
         tools = []
 
 
+
 async def build_agent():
     """
     Builds an OpenAI-based agent using the LangChain framework,
@@ -62,8 +68,18 @@ async def build_agent():
         global tools
 
         try:
-            logger.info("Processing message with LLM...")
+            logger.info("\n\n      [ Call model ]\n")
             logger.debug("State messages: %s", state["messages"])
+
+            logger.info(f"\nstate = {state}")
+            user_id = None
+            role = None
+            for message in state["messages"]:
+                if isinstance(message, HumanMessage):
+                    user_id = message.user_id
+                    role = message.role
+            logger.info(f"\nrole = {role}")
+            logger.info(f"\nuser_id = {user_id}")
 
             if tools:
                 logger.info(f"Using {len(tools)} tools: {[tool.name for tool in tools]}")
@@ -87,6 +103,8 @@ async def build_agent():
 
     builder = StateGraph(MessagesState)
     builder.add_node(call_model)
+    #builder.add_node(filter_tools)
+
     if tools:
         builder.add_node(ToolNode(tools))
         builder.add_edge(START, "call_model")
