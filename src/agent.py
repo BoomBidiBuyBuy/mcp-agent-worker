@@ -2,18 +2,14 @@ import asyncio
 import json
 import logging
 import os
-from collections.abc import Sequence
-from typing import Annotated
 
 import httpx
-from langchain_core.messages import AIMessage, AnyMessage, HumanMessage
+from langchain_core.messages import HumanMessage
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import START, MessagesState, StateGraph
-from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode, tools_condition
-from typing_extensions import TypedDict
 
 from envs import MCP_REGISTRY_ENDPOINT, MCP_SERVERS_FILE_PATH, OPENAI_API_KEY, OPENAI_MODEL
 
@@ -26,6 +22,13 @@ logger = logging.getLogger(__name__)
 agent = None
 agent_initializing = False
 tools = []
+
+llm = ChatOpenAI(
+    temperature=1,
+    streaming=False,
+    model=OPENAI_MODEL,
+    api_key=OPENAI_API_KEY,
+)
 
 
 async def read_tools_from_mcp():
@@ -47,6 +50,50 @@ async def read_tools_from_mcp():
         tools = []
 
 
+def call_model(state: MessagesState):
+    global tools, llm
+
+    try:
+        logger.info("\n\n      [ Call model ]\n")
+        logger.debug(f"State messages: {state['messages']}")
+
+        logger.info(f"\nstate = {state}")
+
+        user_id = None
+        role = None
+        for message in state["messages"]:
+            if isinstance(message, HumanMessage):
+                role = message.role
+                user_id = message.user_id
+                break
+        logger.info(f"\nUser {user_id} initiated a call has role = {role}")
+
+        if role != "admin":
+            allowed_tools = [tool for tool in tools if role in tool.tags]
+        else:
+            allowed_tools = tools
+
+        logger.info(f"Allowed tools: {allowed_tools}")
+
+        if allowed_tools:
+            response = llm.bind_tools(allowed_tools).invoke(state["messages"])
+            logger.debug(f"LLM response: {response}")
+        else:
+            logger.info("Using LLM without tools")
+            response = llm.invoke(state["messages"])
+            logger.debug(f"LLM response without tools: {response}")
+        return {"messages": response}
+    except Exception as e:
+        logger.exception(f"Error in call_model: {e}")
+        # Return a simple error message
+        from langchain_core.messages import AIMessage
+
+        return {
+            "messages": [
+                AIMessage(content="Sorry, I encountered an error processing your request.")
+            ]
+        }
+
 
 async def build_agent():
     """
@@ -55,55 +102,10 @@ async def build_agent():
 
     The agent uses InMemorySaver to persist conversation history.
     """
-    llm = ChatOpenAI(
-        temperature=1,
-        streaming=False,
-        model=OPENAI_MODEL,
-        api_key=OPENAI_API_KEY,
-    )
-
     await read_tools_from_mcp()
-
-    def call_model(state: MessagesState):
-        global tools
-
-        try:
-            logger.info("\n\n      [ Call model ]\n")
-            logger.debug("State messages: %s", state["messages"])
-
-            logger.info(f"\nstate = {state}")
-            user_id = None
-            role = None
-            for message in state["messages"]:
-                if isinstance(message, HumanMessage):
-                    user_id = message.user_id
-                    role = message.role
-            logger.info(f"\nrole = {role}")
-            logger.info(f"\nuser_id = {user_id}")
-
-            if tools:
-                logger.info(f"Using {len(tools)} tools: {[tool.name for tool in tools]}")
-                response = llm.bind_tools(tools).invoke(state["messages"])
-                logger.debug("LLM response with tools: %s", response)
-            else:
-                logger.info("Using LLM without tools")
-                response = llm.invoke(state["messages"])
-                logger.debug("LLM response without tools: %s", response)
-            return {"messages": response}
-        except Exception as e:
-            logger.exception("Error in call_model: %s", e)
-            # Return a simple error message
-            from langchain_core.messages import AIMessage
-
-            return {
-                "messages": [
-                    AIMessage(content="Sorry, I encountered an error processing your request.")
-                ]
-            }
 
     builder = StateGraph(MessagesState)
     builder.add_node(call_model)
-    #builder.add_node(filter_tools)
 
     if tools:
         builder.add_node(ToolNode(tools))
@@ -157,6 +159,7 @@ def _expand_env_vars(value):
 
 def load_mcp_servers():
     if MCP_REGISTRY_ENDPOINT:
+        # Read MCP servers from the MCP registry
         logger.info(f"Loading MCP servers from registry endpoint: {MCP_REGISTRY_ENDPOINT}")
         response = httpx.get(f"{MCP_REGISTRY_ENDPOINT}/list_services")
         response.raise_for_status()

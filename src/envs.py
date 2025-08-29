@@ -9,3 +9,6 @@ OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 MCP_REGISTRY_ENDPOINT = os.getenv("MCP_REGISTRY_ENDPOINT")
 
 MCP_SERVERS_FILE_PATH = os.environ.get("MCP_SERVERS_FILE_PATH", "assets/mcp-servers.json")
+
+USERS_GROUPS_ENDPOINT = os.getenv("USERS_GROUPS_ENDPOINT")
+DEFAULT_ROLE = os.getenv("DEFAULT_ROLE", "unknown")

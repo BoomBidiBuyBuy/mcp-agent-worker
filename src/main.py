@@ -2,13 +2,14 @@ import asyncio
 import logging
 from typing import Annotated, Any
 
+import httpx
 from fastmcp import FastMCP
 from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.messages import HumanMessage, SystemMessage
 from starlette.responses import JSONResponse
 
 import agent
-from envs import MCP_HOST, MCP_PORT
+from envs import DEFAULT_ROLE, MCP_HOST, MCP_PORT, USERS_GROUPS_ENDPOINT
 
 mcp_server = FastMCP(name="mcp-agent-worker")
 
@@ -24,11 +25,14 @@ class LogHandler(BaseCallbackHandler):
         print("\n\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n\n")
         print(f"[TOOL start] {serialized.get('name')} args={input_str}")
 
-    def on_tool_end(self, output: str, **kwargs: Any):
-        print(f"[TOOL end] output={output[:120]!r}")
-        print()
-        print("\n\n<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n\n")
-        print()
+
+def get_role_for_user(user_id: str) -> str:
+    if USERS_GROUPS_ENDPOINT:
+        response = httpx.get(f"{USERS_GROUPS_ENDPOINT}/role_by_user", params={"user_id": user_id})
+        response.raise_for_status()
+        response_data = response.json()
+        return response_data.get("role", DEFAULT_ROLE)
+    return DEFAULT_ROLE
 
 
 @mcp_server.tool
@@ -60,7 +64,11 @@ async def execute_plan(
                     """
                 ),
                 SystemMessage(content=f"The user that is executing the plan is {user_id}"),
-                HumanMessage(content=str_json_plan),
+                HumanMessage(
+                    content=str_json_plan,
+                    user_id=user_id,
+                    role=get_role_for_user(user_id),
+                ),
             ]
         },
         config={"configurable": {"thread_id": user_id}, "callbacks": [LogHandler()]},
@@ -115,13 +123,19 @@ async def http_message(request):
                     """
                 ),
                 SystemMessage(
-                    content="Your users are non technical, do not expose technical details like JSON, ids, any MCP metnion, etc"
+                    content="Your users are non technical, do not expose technical details like "
+                    "JSON, ids, any MCP mention, etc"
                 ),
                 SystemMessage(
-                    content="Do not ask confirmation if everything is clear, just do that and report status"
+                    content="Do not ask confirmation if everything is clear, "
+                    "just do that and report status"
                 ),
                 SystemMessage(content=f"The user that is executing the plan is {user_id}"),
-                HumanMessage(content=message, user_id=user_id, role="ADSKII_ADMIN"),
+                HumanMessage(
+                    content=message,
+                    user_id=user_id,
+                    role=get_role_for_user(user_id),
+                ),
             ],
         },
         config={
