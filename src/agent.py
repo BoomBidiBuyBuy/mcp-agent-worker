@@ -65,6 +65,9 @@ def get_allowed_tools_for_role(role: str):
 
 
 def filter_tools_for_role(tools, role: str):
+    if role == "admin":
+        return tools
+
     allowed_tools = get_allowed_tools_for_role(role)
 
     return [tool for tool in tools if tool.name in [tool["name"] for allowed_tool in allowed_tools]]
