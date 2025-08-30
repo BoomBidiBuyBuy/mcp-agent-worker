@@ -74,7 +74,7 @@ def filter_tools_for_role(tools, role: str):
 
     allowed_tools = get_allowed_tools_for_role(role)
 
-    return [tool for tool in tools if tool.name in [tool["name"] for allowed_tool in allowed_tools]]
+    return [tool for tool in tools if tool.name in [allowed_tool["name"] for allowed_tool in allowed_tools]]
 
 
 def call_model(state: MessagesState):
