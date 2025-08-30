@@ -9,7 +9,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from starlette.responses import JSONResponse
 
 import agent
-from envs import DEFAULT_ROLE, MCP_HOST, MCP_PORT, USERS_GROUPS_ENDPOINT
+from envs import DEFAULT_ROLE, MCP_HOST, MCP_PORT, MCP_REGISTRY_ENDPOINT
 
 mcp_server = FastMCP(name="mcp-agent-worker")
 
@@ -27,8 +27,8 @@ class LogHandler(BaseCallbackHandler):
 
 
 def get_role_for_user(user_id: str) -> str:
-    if USERS_GROUPS_ENDPOINT:
-        response = httpx.get(f"{USERS_GROUPS_ENDPOINT}/role_by_user", params={"user_id": user_id})
+    if MCP_REGISTRY_ENDPOINT:
+        response = httpx.get(f"{MCP_REGISTRY_ENDPOINT}/role_for_user", data={"user_id": user_id})
         response.raise_for_status()
         response_data = response.json()
         return response_data.get("role", DEFAULT_ROLE)

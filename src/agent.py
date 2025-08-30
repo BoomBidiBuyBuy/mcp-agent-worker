@@ -41,6 +41,7 @@ async def read_tools_from_mcp():
 
         client = MultiServerMCPClient(mcp_servers)
         tools = await client.get_tools()
+        # TODO: implement fetching roles from the MCP registry
         logger.info("Connected to MCP servers")
         logger.info(f"Loaded {len(tools)} tools: {[tool.name for tool in tools]}")
 
@@ -50,14 +51,31 @@ async def read_tools_from_mcp():
         tools = []
 
 
+def get_allowed_tools_for_role(role: str):
+    if MCP_REGISTRY_ENDPOINT:
+        logger.info(f"Getting allowed tools for role: {role}")
+        response = httpx.get(f"{MCP_REGISTRY_ENDPOINT}/tools_for_role", data={"role": role})
+        response.raise_for_status()
+
+        response_data = response.json()
+        logger.info(f"Allowed tools: {response_data}")
+        return response_data.get("tools", [])
+
+    return []
+
+
+def filter_tools_for_role(tools, role: str):
+    allowed_tools = get_allowed_tools_for_role(role)
+
+    return [tool for tool in tools if tool.name in [tool["name"] for allowed_tool in allowed_tools]]
+
+
 def call_model(state: MessagesState):
     global tools, llm
 
     try:
         logger.info("\n\n      [ Call model ]\n")
         logger.debug(f"State messages: {state['messages']}")
-
-        logger.info(f"\nstate = {state}")
 
         user_id = None
         role = None
@@ -67,13 +85,11 @@ def call_model(state: MessagesState):
                 user_id = message.user_id
                 break
         logger.info(f"\nUser {user_id} initiated a call has role = {role}")
+        logger.info(f"All tools: {tools}")
 
-        if role != "admin":
-            allowed_tools = [tool for tool in tools if role in tool.tags]
-        else:
-            allowed_tools = tools
+        allowed_tools = filter_tools_for_role(tools, role)
 
-        logger.info(f"Allowed tools: {allowed_tools}")
+        logger.info(f"Allowed tools for role {role}: {allowed_tools}")
 
         if allowed_tools:
             response = llm.bind_tools(allowed_tools).invoke(state["messages"])
