@@ -28,7 +28,7 @@ class LogHandler(BaseCallbackHandler):
 
 def get_role_for_user(user_id: str) -> str:
     if MCP_REGISTRY_ENDPOINT:
-        response = httpx.get(f"{MCP_REGISTRY_ENDPOINT}/role_for_user", data={"user_id": user_id})
+        response = httpx.post(f"{MCP_REGISTRY_ENDPOINT}/role_for_user", json={"user_id": user_id})
         response.raise_for_status()
         response_data = response.json()
         return response_data.get("role", DEFAULT_ROLE)
