@@ -31,7 +31,12 @@ def get_role_for_user(user_id: str) -> str:
         response = httpx.post(f"{MCP_REGISTRY_ENDPOINT}/role_for_user", json={"user_id": user_id})
         response.raise_for_status()
         response_data = response.json()
-        return response_data.get("role", DEFAULT_ROLE)
+        role = response_data.get("role")
+        if role:
+            logger.info(f"MCP Registry say that for user={user_id} role is {role}")
+        else:
+            logger.info(f"MCP Registry return EMPTY role for the user={user_id}")
+        return role
     return DEFAULT_ROLE
 
 
@@ -57,11 +62,11 @@ async def execute_plan(
         {
             "messages": [
                 SystemMessage(
-                    content="""You are silent plane executor..
-                    You are given a plan to execute. You are connected to the MCP registry where you
-                    can find possible MCP services and their tools to use in plan.
-                    You have to silently and efficiently executed passed plan.
-                    """
+                    content="You are silent plan executor."
+                    "You are given a plan to execute."
+                    "You are connected to the MCP registry where you "
+                    "can find possible MCP services and their tools to use in plan."
+                    "You have silently and efficiently to execute passed plan."
                 ),
                 SystemMessage(content=f"The user that is executing the plan is {user_id}"),
                 HumanMessage(
@@ -112,25 +117,21 @@ async def http_message(request):
         {
             "messages": [
                 SystemMessage(
-                    content="""You are a helpful assistant that joined to MCP tools.
-                    You can either execute something instantly or to schedule execution
-                    for later / periodically using the scheduler.
-                    If you are not sure about any parameter for any tool then you have
-                    to ask the user for it.
-
-                    If you list scheduled jobs then do not expose job id,
-                    then enumerate them and print description and what is the schedule.
-                    """
+                    content="You are a helpful assistant that joined to MCP tools."
+                    "There are might be no tools, in that case do not say to user "
+                    "what you can do."
                 ),
                 SystemMessage(
                     content="Your users are non technical, do not expose technical details like "
-                    "JSON, ids, any MCP mention, etc"
+                    "JSON, ids, any MCP mention, etc. "
+                    "If you want to list something for a user and there are ids in list then "
+                    "enumerate items and print description instead of ids."
                 ),
                 SystemMessage(
                     content="Do not ask confirmation if everything is clear, "
                     "just do that and report status"
                 ),
-                SystemMessage(content=f"The user that is executing the plan is {user_id}"),
+                SystemMessage(content=f"user has id='{user_id}'"),
                 HumanMessage(
                     content=message,
                     user_id=user_id,
