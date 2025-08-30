@@ -46,8 +46,8 @@ async def execute_plan(
     str_json_plan: Annotated[str, "A JSON string representing the plan to execute."],
 ) -> Annotated[str, "The result of the plan execution."]:
     """Execute a plan using the agent help."""
-    logger.info(f"Executing plan ={str_json_plan}")
-    logger.info(f"Executing plan for user ={user_id}")
+    logger.info(f"Executing plan {str_json_plan}")
+    logger.info(f"Executing plan for user {user_id}")
     # retrieve MCP service addresses from the plan
     # with goal to connect agent to them to get proper tools
     # parsed_json = json.loads(str_json_plan)

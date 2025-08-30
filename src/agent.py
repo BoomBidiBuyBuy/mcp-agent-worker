@@ -54,7 +54,7 @@ async def read_tools_from_mcp():
 def get_allowed_tools_for_role(role: str):
     if MCP_REGISTRY_ENDPOINT:
         logger.info(f"Getting allowed tools for role: {role}")
-        response = httpx.get(f"{MCP_REGISTRY_ENDPOINT}/tools_for_role", data={"role": role})
+        response = httpx.post(f"{MCP_REGISTRY_ENDPOINT}/tools_for_role", json={"role": role})
         response.raise_for_status()
 
         response_data = response.json()
