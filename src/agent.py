@@ -86,7 +86,9 @@ def call_model(state: MessagesState):
 
         user_id = None
         role = None
-        for message in state["messages"]:
+        for message in reversed(state["messages"]):
+            # Get the last human message since his role
+            # can change during the conversation
             if isinstance(message, HumanMessage):
                 role = message.role
                 user_id = message.user_id
