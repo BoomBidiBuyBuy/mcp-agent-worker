@@ -41,11 +41,14 @@ def get_role_for_user(user_id: str) -> str:
 
 
 def get_default_system_prompt(role: str) -> str:
+    if not role:
+        return ""
+
     if MCP_REGISTRY_ENDPOINT:
         response = httpx.post(f"{MCP_REGISTRY_ENDPOINT}/system_prompt_for_role", json={"role": role})
         response.raise_for_status()
         response_data = response.json()
-        system_prompt = response_data.get("system_prompt")
+        system_prompt = response_data.get("default_system_prompt")
         if system_prompt:
             logger.info(f"MCP Registry say that for role={role} system prompt is {system_prompt}")
         else:
