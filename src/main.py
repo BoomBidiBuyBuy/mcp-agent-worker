@@ -40,6 +40,20 @@ def get_role_for_user(user_id: str) -> str:
     return DEFAULT_ROLE
 
 
+def get_default_system_prompt(role: str) -> str:
+    if MCP_REGISTRY_ENDPOINT:
+        response = httpx.post(f"{MCP_REGISTRY_ENDPOINT}/system_prompt_for_role", json={"role": role})
+        response.raise_for_status()
+        response_data = response.json()
+        system_prompt = response_data.get("system_prompt")
+        if system_prompt:
+            logger.info(f"MCP Registry say that for role={role} system prompt is {system_prompt}")
+        else:
+            logger.info(f"MCP Registry return EMPTY system prompt for the role={role}")
+        return system_prompt
+    return ""
+
+
 @mcp_server.tool
 async def execute_plan(
     user_id: Annotated[str, "The user that is executing the plan"],
@@ -113,9 +127,10 @@ async def http_message(request):
     user_id = data.get("user_id")
     agent_obj = await agent.get_agent()
 
-    result = await agent_obj.ainvoke(
-        {
-            "messages": [
+    role = get_role_for_user(user_id)
+    default_system_prompt = get_default_system_prompt(role)
+
+    system_messaegs = [
                 SystemMessage(
                     content="You are a helpful assistant that joined to MCP tools."
                     "There are might be no tools, in that case do not say to user "
@@ -132,10 +147,19 @@ async def http_message(request):
                     "just do that and report status"
                 ),
                 SystemMessage(content=f"user has id='{user_id}'"),
+    ]
+
+    if default_system_prompt:
+        system_messaegs.append(SystemMessage(content=default_system_prompt))
+
+    result = await agent_obj.ainvoke(
+        {
+            "messages": [
+                *system_messaegs,
                 HumanMessage(
                     content=message,
                     user_id=user_id,
-                    role=get_role_for_user(user_id),
+                    role=role,
                 ),
             ],
         },
