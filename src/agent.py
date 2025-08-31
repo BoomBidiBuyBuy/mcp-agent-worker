@@ -65,9 +65,6 @@ def get_allowed_tools_for_role(role: str):
 
 
 def filter_tools_for_role(tools, role: str):
-    if role == "admin":
-        logger.info("Role 'admin' allows to use all tools, no filtering")
-        return tools
     if role == "":
         logger.info("Empty role does not allow to use any tools, return empty list")
         return []
