@@ -45,7 +45,9 @@ def get_default_system_prompt(role: str) -> str:
         return ""
 
     if MCP_REGISTRY_ENDPOINT:
-        response = httpx.post(f"{MCP_REGISTRY_ENDPOINT}/system_prompt_for_role", json={"role": role})
+        response = httpx.post(
+            f"{MCP_REGISTRY_ENDPOINT}/system_prompt_for_role", json={"role": role}
+        )
         response.raise_for_status()
         response_data = response.json()
         system_prompt = response_data.get("default_system_prompt")
@@ -134,22 +136,21 @@ async def http_message(request):
     default_system_prompt = get_default_system_prompt(role)
 
     system_messaegs = [
-                SystemMessage(
-                    content="You are a helpful assistant that joined to MCP tools."
-                    "There are might be no tools, in that case do not say to user "
-                    "what you can do."
-                ),
-                SystemMessage(
-                    content="Your users are non technical, do not expose technical details like "
-                    "JSON, ids, any MCP mention, etc. "
-                    "If you want to list something for a user and there are ids in list then "
-                    "enumerate items and print description instead of ids."
-                ),
-                SystemMessage(
-                    content="Do not ask confirmation if everything is clear, "
-                    "just do that and report status"
-                ),
-                SystemMessage(content=f"user has id='{user_id}'"),
+        SystemMessage(
+            content="You are a helpful assistant that joined to MCP tools."
+            "There are might be no tools, in that case do not say to user "
+            "what you can do."
+        ),
+        SystemMessage(
+            content="Your users are non technical, do not expose technical details like "
+            "JSON, ids, any MCP mention, etc. "
+            "If you want to list something for a user and there are ids in list then "
+            "enumerate items and print description instead of ids."
+        ),
+        SystemMessage(
+            content="Do not ask confirmation if everything is clear, just do that and report status"
+        ),
+        SystemMessage(content=f"user has id='{user_id}'"),
     ]
 
     if default_system_prompt:
