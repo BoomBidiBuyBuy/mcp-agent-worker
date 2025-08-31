@@ -131,7 +131,6 @@ async def http_message(request):
                     content="Do not ask confirmation if everything is clear, "
                     "just do that and report status"
                 ),
-
                 SystemMessage(content=f"user has id='{user_id}'"),
                 HumanMessage(
                     content=message,
