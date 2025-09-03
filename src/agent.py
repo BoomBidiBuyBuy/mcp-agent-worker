@@ -97,24 +97,26 @@ def call_model(state: MessagesState):
                 json_schema = message.json_schema
                 break
 
+        runnable = llm
+
         logger.info(f"Structured output: {structured_output}")
         if structured_output:
             logger.info(f"JSON schema: {json_schema}")
-            llm.bind(response_format={"type": "json_object", "json_schema": json_schema})
+            runnable = llm.bind(response_format={"type": "json_schema", "json_schema": json_schema})
 
         logger.info(f"\nUser {user_id} initiated a call has role = {role}")
-        logger.info(f"All tools: {tools}")
+        logger.info(f"All tools: {[tool.name for tool in tools]}")
 
         allowed_tools = filter_tools_for_role(tools, role)
 
-        logger.info(f"Allowed tools for role {role}: {allowed_tools}")
+        logger.info(f"Allowed tools for role {role}: {[tool.name for tool in allowed_tools]}")
 
         if allowed_tools:
-            response = llm.bind_tools(allowed_tools).invoke(state["messages"])
+            response = runnable.bind_tools(allowed_tools).invoke(state["messages"])
             logger.debug(f"LLM response: {response}")
         else:
             logger.info("Using LLM without tools")
-            response = llm.invoke(state["messages"])
+            response = runnable.invoke(state["messages"])
             logger.debug(f"LLM response without tools: {response}")
         return {"messages": response}
     except Exception as e:
