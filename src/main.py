@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import uuid
 from typing import Annotated, Any
 
 import httpx
@@ -130,12 +131,22 @@ async def http_message(request):
     data = await request.json()
     message = data.get("message")
     user_id = data.get("user_id")
-    agent_obj = await agent.get_agent()
+    structured_output = data.get("structured_output", False)
+    json_schema = data.get("json_schema", dict())
 
-    role = get_role_for_user(user_id)
-    default_system_prompt = get_default_system_prompt(role)
+    system_messaegs = []
+    default_system_prompt = ""
+    role = ""
 
-    system_messaegs = [
+    logger.info(f"Recieved to process /message, user_id={user_id}")
+    if not user_id:
+        user_id = uuid.uuid4()  # generate random user id if not provided, we do not need context
+    else:
+        role = get_role_for_user(user_id)
+        default_system_prompt = get_default_system_prompt(role)
+        system_messaegs.append(SystemMessage(content=f"user has id='{user_id}'"))
+
+    system_messaegs += [
         SystemMessage(
             content="You are a helpful assistant that joined to MCP tools."
             "There are might be no tools, in that case do not say to user "
@@ -150,11 +161,17 @@ async def http_message(request):
         SystemMessage(
             content="Do not ask confirmation if everything is clear, just do that and report status"
         ),
-        SystemMessage(content=f"user has id='{user_id}'"),
     ]
 
     if default_system_prompt:
         system_messaegs.append(SystemMessage(content=default_system_prompt))
+
+    agent_obj = await agent.get_agent()
+
+    config = {
+        "configurable": {"thread_id": user_id},
+        "callbacks": [LogHandler()],
+    }
 
     result = await agent_obj.ainvoke(
         {
@@ -164,13 +181,12 @@ async def http_message(request):
                     content=message,
                     user_id=user_id,
                     role=role,
+                    structured_output=structured_output,
+                    json_schema=json_schema,
                 ),
             ],
         },
-        config={
-            "configurable": {"thread_id": user_id},
-            "callbacks": [LogHandler()],
-        },
+        config=config,
     )
     logger.info(f"\n\nMessage received, result={result}\n\n")
 

@@ -93,7 +93,15 @@ def call_model(state: MessagesState):
             if isinstance(message, HumanMessage):
                 role = message.role
                 user_id = message.user_id
+                structured_output = message.structured_output
+                json_schema = message.json_schema
                 break
+
+        logger.info(f"Structured output: {structured_output}")
+        if structured_output:
+            logger.info(f"JSON schema: {json_schema}")
+            llm.bind(response_format={"type": "json_object", "json_schema": json_schema})
+
         logger.info(f"\nUser {user_id} initiated a call has role = {role}")
         logger.info(f"All tools: {tools}")
 
