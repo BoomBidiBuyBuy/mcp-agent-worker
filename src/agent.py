@@ -4,7 +4,7 @@ import logging
 import os
 
 import httpx
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import InMemorySaver
@@ -80,6 +80,7 @@ def filter_tools_for_role(tools, role: str):
 
 def call_model(state: MessagesState):
     global tools, llm
+    runnable = llm
 
     try:
         logger.info("\n\n      [ Call model ]\n")
@@ -97,11 +98,6 @@ def call_model(state: MessagesState):
                 json_schema = message.json_schema
                 break
 
-        logger.info(f"Structured output: {structured_output}")
-        if structured_output:
-            logger.info(f"JSON schema: {json_schema}")
-            llm.bind(response_format={"type": "json_object", "json_schema": json_schema})
-
         logger.info(f"\nUser {user_id} initiated a call has role = {role}")
         logger.info(f"All tools: {tools}")
 
@@ -110,18 +106,27 @@ def call_model(state: MessagesState):
         logger.info(f"Allowed tools for role {role}: {allowed_tools}")
 
         if allowed_tools:
-            response = llm.bind_tools(allowed_tools).invoke(state["messages"])
-            logger.debug(f"LLM response: {response}")
+            logger.info("Using LLM with tools")
+            runnable = runnable.bind_tools(allowed_tools)
         else:
             logger.info("Using LLM without tools")
-            response = llm.invoke(state["messages"])
-            logger.debug(f"LLM response without tools: {response}")
-        return {"messages": response}
+
+        logger.info(f"Structured output: {structured_output}")
+        if structured_output:
+            logger.info(f"JSON schema: {json_schema}")
+            runnable = runnable.with_structured_output(json_schema)
+            # runnable.bind(response_format={"type": "json_object", "json_schema": json_schema})
+
+        response = runnable.invoke(state["messages"])
+        logger.debug(f"LLM response: {response}")
+
+        if structured_output:
+            return {"messages": [AIMessage(content=json.dumps(response))]}
+        else:
+            return {"messages": response}
     except Exception as e:
         logger.exception(f"Error in call_model: {e}")
         # Return a simple error message
-        from langchain_core.messages import AIMessage
-
         return {
             "messages": [
                 AIMessage(content="Sorry, I encountered an error processing your request.")
