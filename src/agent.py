@@ -99,11 +99,11 @@ def call_model(state: MessagesState):
                 break
 
         logger.info(f"\nUser {user_id} initiated a call has role = {role}")
-        logger.info(f"All tools: {tools}")
+        logger.info(f"All tools: {[tool.name for tool in tools]}")
 
         allowed_tools = filter_tools_for_role(tools, role)
 
-        logger.info(f"Allowed tools for role {role}: {allowed_tools}")
+        logger.info(f"Allowed tools for role {role}: {[tool.name for tool in allowed_tools]}")
 
         if allowed_tools:
             logger.info("Using LLM with tools")
