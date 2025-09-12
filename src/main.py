@@ -93,6 +93,8 @@ async def execute_plan(
                     content=str_json_plan,
                     user_id=user_id,
                     role=get_role_for_user(user_id),
+                    structured_output=False,
+                    json_schema={},
                 ),
             ]
         },
