@@ -53,7 +53,7 @@ def get_default_system_prompt(role: str) -> str:
         response_data = response.json()
         system_prompt = response_data.get("default_system_prompt")
         if system_prompt:
-            logger.info(f"MCP Registry say that for role={role} system prompt is {system_prompt}")
+            logger.info(f"MCP Registry say that for role={role} system prompt is '{system_prompt}'")
         else:
             logger.info(f"MCP Registry return EMPTY system prompt for the role={role}")
         return system_prompt
@@ -128,10 +128,12 @@ async def http_reread_tools(request):
 async def http_message(request):
     """Endpoint to process message from the client with agent."""
 
-    logger.info(f"\n\nRecieved to process /message, result={request}\n\n")
 
     data = await request.json()
     message = data.get("message")
+
+    logger.info(f"\n\nRecieved to process /message, message={message}\n\n")
+
     user_id = data.get("user_id")
     structured_output = data.get("structured_output", False)
     json_schema = data.get("json_schema", dict())
